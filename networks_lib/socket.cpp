@@ -6,6 +6,23 @@
 #include <WS2tcpip.h>
 #include <vector>
 
+
+uint16_t calcChecksum(ICMP_header& header) {
+
+	uint16_t* words = reinterpret_cast<uint16_t*>(&header);
+
+	uint32_t cs = 0;
+	for (int i = 0; i < sizeof(ICMP_header) / 2; i++) {
+		cs += words[i];
+	}
+
+	while (cs >> 16) {
+		cs = (cs & 0xFFFF) + (cs >> 16);
+	}
+
+	return htons(~cs);
+}
+
 Socket::Socket() {
 	WSADATA ws;
 	int err = WSAStartup(MAKEWORD(2, 2), &ws);
@@ -37,25 +54,6 @@ SOCKET Socket::get() {
 	return s;
 }
 
-ICMP_header::ICMP_header(const char* pl) {
-	checksum = 0;
-	memcpy(payload, pl, 4);
-
-	uint16_t* words = reinterpret_cast<uint16_t*>(this);
-
-	uint32_t cs = 0;
-	for (int i = 0; i < sizeof(ICMP_header) / 2; i++) {
-		cs += words[i];
-	}
-
-	while (cs >> 16) {
-		cs = (cs & 0xFFFF) + (cs >> 16);
-	}
-
-	checksum = htons(~cs);
-};
-
-
 addrinfo* dnsRequest(std::string domain) {
 	addrinfo hints{};
 	hints.ai_family = AF_INET;
@@ -71,11 +69,15 @@ addrinfo* dnsRequest(std::string domain) {
 void ping(std::string domain, int timeout = 1000) {
 	Socket s(timeout);
 
-	ICMP_header header("ping");
+	ICMP_header header;
 	addrinfo* destinction = dnsRequest(domain);
 
 	char* buf = reinterpret_cast<char*>(&header);
 	for (int i = 0; i < 4; i++) {
+		header.sequence = htons(i);
+		header.checksum = 0;
+		header.checksum = calcChecksum(header);
+
 		//SENDING
 		int bytes = sendto(s.get(), buf, sizeof(header), 0, destinction->ai_addr, destinction->ai_addrlen);
 		if (bytes == SOCKET_ERROR) {
@@ -85,19 +87,23 @@ void ping(std::string domain, int timeout = 1000) {
 
 		//RECIEVING
 		std::vector<char> resp(1024);
-		int addrlen = destinction->ai_addrlen;
-		bytes = recvfrom(s.get(), resp.data(), sizeof(header), 0, destinction->ai_addr, &addrlen);
+		sockaddr_in sender;
+		int addrlen = sizeof(sender);
+
+		bytes = recvfrom(s.get(), resp.data(), resp.size(), 0, reinterpret_cast<sockaddr*>(&sender), &addrlen);
 		if (bytes == SOCKET_ERROR) {
 			throw std::runtime_error("[ERROR] Recieving failed with error: " + std::to_string(WSAGetLastError()));
 		}
 		std::cout << bytes << " bytes was recieved from " + domain << std::endl;
-	}
 
+		ICMP_header* icmp = reinterpret_cast<ICMP_header*>(resp.data() + 20);
+
+	}
 }
 
 int main() {
 	try {
-		ping("google.com", 3000);
+		ping("google.com", 10000);
 	}
 	catch (std::exception e) {
 		std::cout << e.what();
