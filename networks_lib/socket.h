@@ -8,11 +8,12 @@ private:
 
 public:
 	Socket();
+	Socket(int);
 	~Socket();
 
 	SOCKET get();
 };
-
+#pragma pack(push, 1)
 struct ICMP_header {
 	uint8_t type = 8;
 	uint8_t code = 0;
@@ -22,3 +23,4 @@ struct ICMP_header {
 
 	ICMP_header(const char*);
 };
+#pragma pack(pop)

@@ -17,7 +17,15 @@ Socket::Socket() {
 	if (sDescriptor == INVALID_SOCKET){
 		throw std::runtime_error("[ERROR] Socket creation failed with error: " + std::to_string(WSAGetLastError()));
 	}
+
 	s = sDescriptor;
+}
+
+Socket::Socket(int timeout): Socket(){
+	int err = setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<char*>(&timeout), sizeof(timeout));
+	if (err != 0) {
+		throw std::runtime_error("[ERROR] Socket settings failed with error: " + std::to_string(WSAGetLastError()));
+	}
 }
 
 Socket::~Socket(){
@@ -60,24 +68,25 @@ addrinfo* dnsRequest(std::string domain) {
 	return res;
 }
 
-size_t ping(std::string domain) {
-	addrinfo destinction = dnsRequest(domain);
+void ping(std::string domain, int timeout = 1000) {
+	Socket s(timeout);
 
 	ICMP_header header("ping");
-	Socket s;
+	addrinfo* destinction = dnsRequest(domain);
 
 	char* buf = reinterpret_cast<char*>(&header);
 	for (int i = 0; i < 4; i++) {
 		//SENDING
-		int bytes = sendto(s.get(), buf, sizeof(header), 0, destinction.ai_addr, destinction.ai_addrlen);
+		int bytes = sendto(s.get(), buf, sizeof(header), 0, destinction->ai_addr, destinction->ai_addrlen);
 		if (bytes == SOCKET_ERROR) {
 			throw std::runtime_error("[ERROR] Sending failed with error: " + std::to_string(WSAGetLastError()));
 		}
 		std::cout << bytes << " bytes was sent to " + domain << std::endl;
 
 		//RECIEVING
-		std::vector<char> resp(sizeof(ICMP_header));
-		bytes = recvfrom(s.get(), resp.data(), sizeof(header), 0, destinction.ai_addr, (int*)&destinction.ai_addrlen);
+		std::vector<char> resp(1024);
+		int addrlen = destinction->ai_addrlen;
+		bytes = recvfrom(s.get(), resp.data(), sizeof(header), 0, destinction->ai_addr, &addrlen);
 		if (bytes == SOCKET_ERROR) {
 			throw std::runtime_error("[ERROR] Recieving failed with error: " + std::to_string(WSAGetLastError()));
 		}
@@ -87,5 +96,10 @@ size_t ping(std::string domain) {
 }
 
 int main() {
-	ping("google.com");
+	try {
+		ping("google.com", 3000);
+	}
+	catch (std::exception e) {
+		std::cout << e.what();
+	}
 }
