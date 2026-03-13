@@ -1,0 +1,55 @@
+# Build results
+Debug/
+Release/
+x64/
+x86/
+build/
+bin/
+obj/
+
+# Visual Studio cache
+.vs/
+*.VC.db
+*.VC.opendb
+*.opensdf
+*.sdf
+*.cache
+*.ipch
+
+# IntelliSense
+*.iobj
+*.ipdb
+
+# User files
+*.user
+*.userosscache
+*.suo
+*.rsuser
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake-build*/
+build/
+
+# Visual Studio CMake
+out/
+.vscode/
+
+# Test results
+TestResults/
+
+# NuGet
+*.nupkg
+packages/
+
+# OS files
+.DS_Store
+Thumbs.db
